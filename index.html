@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>DeepSeek 对话平台 · 深度思考 + 多模型</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* 主题变量 */
+        :root {
+            --bg-sidebar: #f7f7f8;
+            --bg-main: #ffffff;
+            --border-light: #e5e5e5;
+            --text-primary: #1a1a1a;
+            --text-secondary: #5a5a5a;
+            --message-user-bg: #e9ecef;
+            --message-assistant-bg: #f8f9fa;
+            --hover-bg: #f1f3f5;
+            --active-bg: #e9ecef;
+            --input-bg: #ffffff;
+            --drawer-bg: #ffffff;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+        }
+        body.dark {
+            --bg-sidebar: #1e1e2a;
+            --bg-main: #18181c;
+            --border-light: #2c2c36;
+            --text-primary: #eaeef2;
+            --text-secondary: #9ca3af;
+            --message-user-bg: #2a2a36;
+            --message-assistant-bg: #22222c;
+            --hover-bg: #2c2c38;
+            --active-bg: #3a3a48;
+            --input-bg: #2c2c36;
+            --drawer-bg: #1e1e2a;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            transition: background 0.2s, color 0.2s;
+        }
+        /* 主布局 */
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            position: relative;
+        }
+        /* 桌面端侧边栏（可折叠） */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.2s ease;
+            flex-shrink: 0;
+            overflow-x: hidden;
+        }
+        .sidebar.collapsed {
+            width: 60px;
+        }
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .new-chat-btn {
+            background: var(--accent);
+            border: none;
+            border-radius: 40px;
+            padding: 10px 16px;
+            flex: 1;
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-right: 8px;
+        }
+        .sidebar.collapsed .new-chat-btn span {
+            display: none;
+        }
+        .sidebar.collapsed .new-chat-btn {
+            padding: 10px;
+            margin-right: 0;
+        }
+        .toggle-sidebar-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .toggle-sidebar-btn:hover {
+            background: var(--hover-bg);
+        }
+        .sessions-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 8px;
+        }
+        .session-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 12px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: 0.1s;
+            color: var(--text-primary);
+        }
+        .session-item:hover {
+            background: var(--hover-bg);
+        }
+        .session-item.active {
+            background: var(--active-bg);
+        }
+        .session-title {
+            flex: 1;
+            font-size: 0.85rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar.collapsed .session-title {
+            display: none;
+        }
+        .session-delete {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: #e5484d;
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 4px;
+            border-radius: 6px;
+        }
+        .session-item:hover .session-delete {
+            opacity: 1;
+        }
+        /* 移动端覆盖式菜单 */
+        .mobile-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: none;
+            backdrop-filter: blur(2px);
+        }
+        .mobile-sidebar {
+            position: fixed;
+            top: 0;
+            left: -80%;
+            width: 80%;
+            max-width: 320px;
+            height: 100%;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-light);
+            z-index: 201;
+            display: flex;
+            flex-direction: column;
+            transition: left 0.3s ease;
+        }
+        .mobile-sidebar.open {
+            left: 0;
+        }
+        .mobile-sidebar .sidebar-header {
+            padding: 16px;
+        }
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 20;
+            background: var(--bg-main);
+            border: 1px solid var(--border-light);
+            border-radius: 40px;
+            width: 40px;
+            height: 40px;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        /* 右侧主区域 */
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-main);
+            position: relative;
+        }
+        .chat-header {
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .model-badge {
+            background: var(--hover-bg);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .header-right {
+            display: flex;
+            gap: 8px;
+        }
+        .icon-btn {
+            background: transparent;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 40px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: 0.2s;
+        }
+        .icon-btn:hover {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+        }
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            scroll-behavior: smooth;
+        }
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.2s ease;
+        }
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+        .message.assistant {
+            align-self: flex-start;
+            width: 100%;
+            max-width: 90%;
+        }
+        .message-avatar {
+            width: 34px;
+            height: 34px;
+            background: var(--hover-bg);
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .message.user .message-avatar {
+            background: var(--accent);
+            color: white;
+        }
+        .message.assistant .message-avatar {
+            background: #10b981;
+            color: white;
+        }
+        .message-content-wrapper {
+            position: relative;
+            max-width: 100%;
+            flex: 1;
+        }
+        .message-content {
+            background: var(--message-assistant-bg);
+            padding: 10px 16px;
+            border-radius: 18px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        .message.user .message-content {
+            background: var(--message-user-bg);
+            border-bottom-right-radius: 6px;
+        }
+        .message.assistant .message-content {
+            border-bottom-left-radius: 6px;
+        }
+        .thinking-block {
+            background: var(--hover-bg);
+            border-left: 3px solid #f59e0b;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .thinking-content {
+            flex: 1;
+            white-space: pre-wrap;
+        }
+        .thinking-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+        }
+        .thinking-content.collapsed {
+            display: none;
+        }
+        .message-actions {
+            position: absolute;
+            bottom: -26px;
+            right: 8px;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        .message.user .message-actions {
+            right: auto;
+            left: 8px;
+        }
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+        .action-btn {
+            background: var(--hover-bg);
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .action-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+        .recall-btn:hover {
+            background: #ef4444;
+        }
+        .regenerate-btn:hover {
+            background: #f59e0b;
+        }
+        .input-area {
+            padding: 16px 24px 24px;
+            border-top: 1px solid var(--border-light);
+            background: var(--bg-main);
+        }
+        .input-options {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            padding: 0 8px;
+        }
+        .option-switch {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .option-switch input {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            background: var(--input-bg);
+            border-radius: 28px;
+            padding: 6px 6px 6px 18px;
+            border: 1px solid var(--border-light);
+        }
+        .input-wrapper textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 12px 0;
+            resize: none;
+            outline: none;
+            max-height: 120px;
+        }
+        .send-button {
+            background: var(--accent);
+            border: none;
+            border-radius: 40px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* 右侧抽屉 */
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: -480px;
+            width: 480px;
+            height: 100%;
+            background: var(--drawer-bg);
+            border-left: 1px solid var(--border-light);
+            transition: right 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.1);
+        }
+        .drawer.open {
+            right: 0;
+        }
+        .drawer-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+        .drawer-content {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .connection-list {
+            margin-bottom: 24px;
+        }
+        .connection-item {
+            background: var(--hover-bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: 0.1s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .connection-item:hover {
+            background: var(--active-bg);
+        }
+        .connection-item.active {
+            border-left: 3px solid var(--accent);
+            background: var(--active-bg);
+        }
+        .connection-name {
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+        .connection-detail {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .new-connection-btn {
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 10px;
+            margin: 12px 0;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .platform-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .platform-option {
+            background: var(--hover-bg);
+            border-radius: 40px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .platform-option.selected {
+            background: var(--accent);
+            color: white;
+        }
+        .model-load-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .model-load-row select {
+            flex: 1;
+        }
+        .load-models-btn {
+            background: var(--hover-bg);
+            border: none;
+            border-radius: 40px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(2px);
+            z-index: 150;
+            display: none;
+        }
+        .overlay.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--hover-bg);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 10px;
+        }
+        /* 移动端适配 */
+        @media (max-width: 700px) {
+            .sidebar {
+                display: none;
+            }
+            .mobile-menu-btn {
+                display: flex;
+            }
+            .chat-header {
+                padding-left: 60px;
+            }
+            .drawer {
+                width: 90%;
+                right: -90%;
+            }
+            .message {
+                max-width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <!-- 桌面端侧边栏 -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="new-chat-btn" id="newChatBtn"><i class="fas fa-plus"></i><span>新建对话</span></button>
+            <button class="toggle-sidebar-btn" id="toggleSidebarBtn"><i class="fas fa-chevron-left"></i></button>
+        </div>
+        <div class="sessions-list" id="sessionsList"></div>
+    </div>
+    <!-- 移动端覆盖式菜单 -->
+    <div class="mobile-menu-btn" id="mobileMenuBtn"><i class="fas fa-bars"></i></div>
+    <div class="mobile-menu-overlay" id="mobileOverlay"></div>
+    <div class="mobile-sidebar" id="mobileSidebar">
+        <div class="sidebar-header">
+            <button class="new-chat-btn" id="mobileNewChatBtn"><i class="fas fa-plus"></i><span>新建对话</span></button>
+        </div>
+        <div class="sessions-list" id="mobileSessionsList"></div>
+    </div>
+    <div class="main-chat">
+        <div class="chat-header">
+            <div class="model-badge" id="currentModelBadge"><i class="fas fa-microchip"></i> 未选择模型</div>
+            <div class="header-right">
+                <button class="icon-btn" id="themeToggleBtn"><i class="fas fa-moon"></i></button>
+                <button class="icon-btn" id="openApiDrawerBtn"><i class="fas fa-plug"></i></button>
+            </div>
+        </div>
+        <div class="messages-container" id="messagesContainer"></div>
+        <div class="input-area">
+            <div class="input-options">
+                <label class="option-switch">
+                    <input type="checkbox" id="deepThinkCheckbox"> 深度思考
+                </label>
+                <label class="option-switch">
+                    <input type="checkbox" id="webSearchCheckbox"> 智能搜索
+                </label>
+            </div>
+            <div class="input-wrapper">
+                <textarea id="messageInput" rows="1" placeholder="发送消息... (Enter 发送，Shift+Enter 换行)"></textarea>
+                <button class="send-button" id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="overlay" id="drawerOverlay"></div>
+<div class="drawer" id="apiDrawer">
+    <div class="drawer-header">
+        <span><i class="fas fa-link"></i> API 连接管理</span>
+        <button class="icon-btn" id="closeDrawerBtn"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="drawer-content">
+        <div class="connection-list" id="connectionList"></div>
+        <button class="new-connection-btn" id="newConnectionBtn"><i class="fas fa-plus"></i> 新建连接</button>
+        <div id="newConnectionForm" style="display: none;">
+            <div class="form-group">
+                <label>连接名称</label>
+                <input type="text" id="connName" placeholder="例如: DeepSeek官方">
+            </div>
+            <label>选择模型平台</label>
+            <div class="platform-select" id="platformSelect">
+                <div class="platform-option" data-platform="openai">OpenAI</div>
+                <div class="platform-option" data-platform="deepseek">DeepSeek</div>
+                <div class="platform-option" data-platform="gemini">Gemini</div>
+                <div class="platform-option" data-platform="grok">Grok</div>
+                <div class="platform-option" data-platform="claude">Claude</div>
+                <div class="platform-option" data-platform="doubao">豆包</div>
+                <div class="platform-option" data-platform="openrouter">OpenRouter</div>
+                <div class="platform-option" data-platform="custom">自定义 (OpenAI协议)</div>
+            </div>
+            <div id="customFields" style="display: none;">
+                <div class="form-group">
+                    <label>API URL</label>
+                    <input type="text" id="customUrl" placeholder="https://api.openai.com/v1">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="customKey" placeholder="sk-...">
+                </div>
+            </div>
+            <div id="platformFields" style="display: block;">
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="platformKey" placeholder="请输入API密钥">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>模型选择</label>
+                <div class="model-load-row">
+                    <select id="modelSelect"></select>
+                    <button class="load-models-btn" id="loadModelsBtn"><i class="fas fa-sync-alt"></i> 加载列表</button>
+                </div>
+                <div id="manualModelContainer" style="margin-top: 8px;"></div>
+            </div>
+            <button class="new-connection-btn" id="saveConnectionBtn" style="margin-top: 8px;">保存连接</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 全局状态 ----------
+    let apiConnections = [];
+    let currentConnectionId = null;
+    let sessions = [];
+    let currentSessionId = null;
+    let isLoading = false;
+    let abortController = null;
+
+    // DOM 元素
+    const sessionsListDiv = document.getElementById('sessionsList');
+    const mobileSessionsListDiv = document.getElementById('mobileSessionsList');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const newChatBtn = document.getElementById('newChatBtn');
+    const mobileNewChatBtn = document.getElementById('mobileNewChatBtn');
+    const openApiDrawerBtn = document.getElementById('openApiDrawerBtn');
+    const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    const apiDrawer = document.getElementById('apiDrawer');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const currentModelBadge = document.getElementById('currentModelBadge');
+    const connectionListDiv = document.getElementById('connectionList');
+    const newConnectionBtn = document.getElementById('newConnectionBtn');
+    const newConnectionForm = document.getElementById('newConnectionForm');
+    const saveConnectionBtn = document.getElementById('saveConnectionBtn');
+    const connNameInput = document.getElementById('connName');
+    const customFieldsDiv = document.getElementById('customFields');
+    const platformFieldsDiv = document.getElementById('platformFields');
+    const platformOptions = document.querySelectorAll('.platform-option');
+    const modelSelect = document.getElementById('modelSelect');
+    const loadModelsBtn = document.getElementById('loadModelsBtn');
+    const manualModelContainer = document.getElementById('manualModelContainer');
+    const sidebar = document.getElementById('sidebar');
+    const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+    const deepThinkCheckbox = document.getElementById('deepThinkCheckbox');
+    const webSearchCheckbox = document.getElementById('webSearchCheckbox');
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileOverlay = document.getElementById('mobileOverlay');
+    const mobileSidebar = document.getElementById('mobileSidebar');
+    let selectedPlatform = 'openai';
+
+    // 辅助函数
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, m => {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // 保存所有数据
+    function saveAll() {
+        localStorage.setItem('apiConnections', JSON.stringify(apiConnections));
+        localStorage.setItem('currentConnectionId', currentConnectionId);
+        localStorage.setItem('sessions', JSON.stringify(sessions));
+        localStorage.setItem('currentSessionId', currentSessionId);
+        localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed') ? 'true' : 'false');
+        localStorage.setItem('deepThinkEnabled', deepThinkCheckbox.checked);
+        localStorage.setItem('webSearchEnabled', webSearchCheckbox.checked);
+    }
+
+    // 加载数据
+    function loadAll() {
+        // 加载 API 连接
+        const savedConns = localStorage.getItem('apiConnections');
+        if (savedConns) apiConnections = JSON.parse(savedConns);
+        else apiConnections = [];
+
+        const savedConnId = localStorage.getItem('currentConnectionId');
+        if (savedConnId && apiConnections.find(c => c.id === savedConnId)) currentConnectionId = savedConnId;
+
+        // 加载会话
+        const savedSessions = localStorage.getItem('sessions');
+        if (savedSessions) {
+            sessions = JSON.parse(savedSessions);
+            if (!sessions.length) {
+                const defaultId = Date.now().toString();
+                sessions = [{ id: defaultId, title: '新对话', messages: [] }];
+            }
+        } else {
+            const defaultId = Date.now().toString();
+            sessions = [{ id: defaultId, title: '新对话', messages: [] }];
+        }
+
+        const savedSessId = localStorage.getItem('currentSessionId');
+        if (savedSessId && sessions.find(s => s.id === savedSessId)) currentSessionId = savedSessId;
+        else if (sessions.length) currentSessionId = sessions[0].id;
+
+        // 主题
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') document.body.classList.add('dark');
+        else document.body.classList.remove('dark');
+
+        // 侧边栏折叠状态
+        const savedCollapsed = localStorage.getItem('sidebarCollapsed');
+        if (savedCollapsed === 'true') sidebar.classList.add('collapsed');
+
+        // 开关状态
+        deepThinkCheckbox.checked = localStorage.getItem('deepThinkEnabled') === 'true';
+        webSearchCheckbox.checked = localStorage.getItem('webSearchEnabled') === 'true';
+
+        updateThemeIcon();
+        renderConnectionList();
+        updateModelBadge();
+        renderSessions();
+        renderMessages();
+    }
+
+    function updateThemeIcon() {
+        const isDark = document.body.classList.contains('dark');
+        themeToggleBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    }
+
+    function toggleTheme() {
+        document.body.classList.toggle('dark');
+        updateThemeIcon();
+        saveAll();
+    }
+
+    function updateModelBadge() {
+        const conn = apiConnections.find(c => c.id === currentConnectionId);
+        if (conn) {
+            currentModelBadge.innerHTML = `<i class="fas fa-microchip"></i> ${conn.name} · ${conn.model || '未选模型'}`;
+        } else {
+            currentModelBadge.innerHTML = `<i class="fas fa-microchip"></i> 未选择API连接`;
+        }
+    }
+
+    // 会话渲染（桌面和移动共用内容）
+    function renderSessions() {
+        const renderList = (container) => {
+            container.innerHTML = '';
+            if (!sessions.length) return;
+            sessions.forEach(session => {
+                const div = document.createElement('div');
+                div.className = `session-item ${session.id === currentSessionId ? 'active' : ''}`;
+                div.innerHTML = `
+                    <span class="session-title">${escapeHtml(session.title || '新对话')}</span>
+                    <button class="session-delete" data-id="${session.id}"><i class="fas fa-trash-alt"></i></button>
+                `;
+                div.addEventListener('click', (e) => {
+                    if (!e.target.closest('.session-delete')) switchSession(session.id);
+                });
+                div.querySelector('.session-delete').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteSession(session.id);
+                });
+                container.appendChild(div);
+            });
+        };
+        renderList(sessionsListDiv);
+        if (mobileSessionsListDiv) renderList(mobileSessionsListDiv);
+    }
+
+    function switchSession(id) {
+        if (isLoading) { alert("请等待当前请求完成"); return; }
+        currentSessionId = id;
+        renderSessions();
+        renderMessages();
+        saveAll();
+        // 移动端关闭菜单
+        closeMobileMenu();
+    }
+
+    function deleteSession(id) {
+        if (sessions.length === 1) { alert("至少保留一个对话"); return; }
+        const index = sessions.findIndex(s => s.id === id);
+        if (index !== -1) {
+            sessions.splice(index, 1);
+            if (currentSessionId === id) currentSessionId = sessions[0].id;
+            renderSessions();
+            renderMessages();
+            saveAll();
+        }
+    }
+
+    function newSession() {
+        if (isLoading) { alert("请等待当前请求完成"); return; }
+        const newId = Date.now().toString();
+        sessions.unshift({ id: newId, title: '新对话', messages: [] });
+        currentSessionId = newId;
+        renderSessions();
+        renderMessages();
+        saveAll();
+        closeMobileMenu();
+    }
+
+    // 消息渲染（完全重新渲染，但只发生在消息变更时，不影响流式更新）
+    function renderMessages() {
+        const session = sessions.find(s => s.id === currentSessionId);
+        if (!session) return;
+        messagesContainer.innerHTML = '';
+        if (session.messages.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'message assistant';
+            emptyDiv.innerHTML = `<div class="message-avatar"><i class="fas fa-robot"></i></div><div class="message-content-wrapper"><div class="message-content">👋 你好！请先在右侧“API连接管理”中配置一个API连接并选中，即可开始对话。</div></div>`;
+            messagesContainer.appendChild(emptyDiv);
+        } else {
+            session.messages.forEach((msg, idx) => {
+                const msgDiv = createMessageElement(msg, idx);
+                messagesContainer.appendChild(msgDiv);
+            });
+        }
+        attachMessageActions();
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function createMessageElement(msg, idx) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${msg.role}`;
+        const avatar = msg.role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+        let contentHtml = '';
+        if (msg.role === 'assistant' && msg.thinking) {
+            const collapsedClass = msg.thinkingCollapsed ? 'collapsed' : '';
+            contentHtml = `
+                <div class="thinking-block" data-thinking-idx="${idx}">
+                    <div class="thinking-content ${collapsedClass}">${escapeHtml(msg.thinking)}</div>
+                    <button class="thinking-toggle"><i class="fas ${msg.thinkingCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}"></i></button>
+                </div>
+            `;
+        }
+        contentHtml += `<div class="message-content">${escapeHtml(msg.content)}</div>`;
+        msgDiv.innerHTML = `
+            <div class="message-avatar">${avatar}</div>
+            <div class="message-content-wrapper">
+                ${contentHtml}
+                <div class="message-actions">
+                    <button class="action-btn copy-btn" data-msg="${escapeHtml(msg.content).replace(/"/g, '&quot;')}"><i class="fas fa-copy"></i> 复制</button>
+                    ${msg.role === 'user' ? `<button class="action-btn recall-btn" data-msg-idx="${idx}"><i class="fas fa-undo-alt"></i> 撤回</button>` : ''}
+                    ${msg.role === 'assistant' ? `<button class="action-btn regenerate-btn" data-msg-idx="${idx}"><i class="fas fa-sync-alt"></i> 重新生成</button>` : ''}
+                </div>
+            </div>
+        `;
+        return msgDiv;
+    }
+
+    function attachMessageActions() {
+        // 复制
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const text = btn.getAttribute('data-msg');
+                navigator.clipboard.writeText(text);
+                alert("已复制");
+            });
+        });
+        // 撤回
+        document.querySelectorAll('.recall-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (isLoading) { alert("请等待当前请求完成"); return; }
+                const idx = parseInt(btn.getAttribute('data-msg-idx'));
+                const session = sessions.find(s => s.id === currentSessionId);
+                if (session && session.messages[idx]?.role === 'user') {
+                    session.messages.splice(idx);
+                    renderMessages();
+                    saveAll();
+                }
+            });
+        });
+        // 重新生成
+        document.querySelectorAll('.regenerate-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (isLoading) { alert("请等待当前请求完成"); return; }
+                const assistantIdx = parseInt(btn.getAttribute('data-msg-idx'));
+                const session = sessions.find(s => s.id === currentSessionId);
+                if (!session || session.messages[assistantIdx]?.role !== 'assistant') return;
+                let userMsgIdx = assistantIdx - 1;
+                while (userMsgIdx >= 0 && session.messages[userMsgIdx]?.role !== 'user') userMsgIdx--;
+                if (userMsgIdx < 0) return;
+                const userMessage = session.messages[userMsgIdx].content;
+                session.messages.splice(assistantIdx);
+                renderMessages();
+                saveAll();
+                await sendMessageStream(userMessage, true);
+            });
+        });
+        // 思考区块折叠/展开
+        document.querySelectorAll('.thinking-block').forEach(block => {
+            const toggle = block.querySelector('.thinking-toggle');
+            if (toggle) {
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const content = block.querySelector('.thinking-content');
+                    if (content) {
+                        content.classList.toggle('collapsed');
+                        const icon = toggle.querySelector('i');
+                        if (icon) {
+                            icon.className = content.classList.contains('collapsed') ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+                        }
+                        const thinkingIdx = block.getAttribute('data-thinking-idx');
+                        if (thinkingIdx !== null) {
+                            const session = sessions.find(s => s.id === currentSessionId);
+                            if (session && session.messages[thinkingIdx]) {
+                                session.messages[thinkingIdx].thinkingCollapsed = content.classList.contains('collapsed');
+                                saveAll();
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    function addMessageToCurrent(role, content, thinking = null) {
+        const session = sessions.find(s => s.id === currentSessionId);
+        if (!session) return;
+        const msg = { role, content };
+        if (thinking) msg.thinking = thinking;
+        if (role === 'assistant') msg.thinkingCollapsed = true;
+        session.messages.push(msg);
+        if (role === 'user' && session.messages.length === 1) {
+            let newTitle = content.slice(0, 20);
+            if (newTitle.length < content.length) newTitle += '...';
+            session.title = newTitle;
+        }
+        renderMessages();
+        saveAll();
+    }
+
+    function getPlatformUrl(platform) {
+        const urls = {
+            openai: 'https://api.openai.com/v1',
+            deepseek: 'https://api.deepseek.com/v1',
+            gemini: 'https://generativelanguage.googleapis.com/v1beta',
+            grok: 'https://api.x.ai/v1',
+            claude: 'https://api.anthropic.com/v1',
+            doubao: 'https://ark.cn-beijing.volces.com/api/v3',
+            openrouter: 'https://openrouter.ai/api/v1'
+        };
+        return urls[platform] || 'https://api.openai.com/v1';
+    }
+
+    async function loadModelList(platform, url, apiKey) {
+        if (!apiKey) { alert("请先填写 API Key"); return []; }
+        let endpoint = url ? url.replace(/\/+$/, '') : getPlatformUrl(platform);
+        endpoint = endpoint + '/models';
+        try {
+            const res = await fetch(endpoint, {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            let models = [];
+            if (data.data) models = data.data.map(m => m.id);
+            else if (data.models) models = data.models.map(m => m.id);
+            return models;
+        } catch (err) {
+            alert("加载模型失败: " + err.message);
+            return [];
+        }
+    }
+
+    // 流式发送消息（使用局部更新，避免闪烁）
+    async function sendMessageStream(userMessage, isRegenerate = false) {
+        const conn = apiConnections.find(c => c.id === currentConnectionId);
+        if (!conn) { alert("请先选择API连接"); return false; }
+        let apiUrl = conn.url || getPlatformUrl(conn.platform);
+        const apiKey = conn.apiKey;
+        const model = conn.model;
+        if (!apiUrl || !apiKey || !model) { alert("API连接信息不完整"); return false; }
+        const endpoint = apiUrl.replace(/\/+$/, '') + '/chat/completions';
+        const session = sessions.find(s => s.id === currentSessionId);
+        const messagesPayload = [];
+        for (let msg of session.messages) messagesPayload.push({ role: msg.role, content: msg.content });
+        messagesPayload.push({ role: 'user', content: userMessage });
+
+        const requestBody = {
+            model: model,
+            messages: messagesPayload,
+            temperature: 0.7,
+            max_tokens: 1500,
+            stream: true
+        };
+        if (deepThinkCheckbox.checked) requestBody.reasoning_effort = 'medium';
+        if (webSearchCheckbox.checked) requestBody.web_search = true;
+
+        isLoading = true;
+        sendBtn.disabled = true;
+        const controller = new AbortController();
+        abortController = controller;
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(requestBody),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error(`API错误: ${response.status}`);
+
+            if (!isRegenerate) addMessageToCurrent('user', userMessage);
+
+            const sessionNow = sessions.find(s => s.id === currentSessionId);
+            const placeholderIdx = sessionNow.messages.push({ role: 'assistant', content: '', thinking: '', thinkingCollapsed: true }) - 1;
+            // 创建占位DOM
+            const placeholderMsg = createMessageElement({ role: 'assistant', content: '', thinking: '' }, placeholderIdx);
+            messagesContainer.appendChild(placeholderMsg);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let fullContent = '';
+            let fullThinking = '';
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed === 'data: [DONE]') continue;
+                    if (trimmed.startsWith('data: ')) {
+                        try {
+                            const jsonStr = trimmed.slice(6);
+                            const chunk = JSON.parse(jsonStr);
+                            const delta = chunk.choices[0]?.delta;
+                            if (delta) {
+                                if (delta.reasoning_content) fullThinking += delta.reasoning_content;
+                                if (delta.content) fullContent += delta.content;
+
+                                const currSession = sessions.find(s => s.id === currentSessionId);
+                                if (currSession && currSession.messages[placeholderIdx]) {
+                                    currSession.messages[placeholderIdx].content = fullContent;
+                                    if (fullThinking) currSession.messages[placeholderIdx].thinking = fullThinking;
+
+                                    // 局部更新DOM
+                                    const msgElements = messagesContainer.querySelectorAll('.message');
+                                    if (msgElements[placeholderIdx]) {
+                                        const wrapper = msgElements[placeholderIdx].querySelector('.message-content-wrapper');
+                                        if (wrapper) {
+                                            let contentHtml = '';
+                                            if (fullThinking) {
+                                                const collapsedClass = currSession.messages[placeholderIdx].thinkingCollapsed ? 'collapsed' : '';
+                                                contentHtml = `
+                                                    <div class="thinking-block" data-thinking-idx="${placeholderIdx}">
+                                                        <div class="thinking-content ${collapsedClass}">${escapeHtml(fullThinking)}</div>
+                                                        <button class="thinking-toggle"><i class="fas ${currSession.messages[placeholderIdx].thinkingCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}"></i></button>
+                                                    </div>
+                                                `;
+                                            }
+                                            contentHtml += `<div class="message-content">${escapeHtml(fullContent)}</div>`;
+                                            const actionsDiv = wrapper.querySelector('.message-actions');
+                                            wrapper.innerHTML = contentHtml;
+                                            if (actionsDiv) wrapper.appendChild(actionsDiv);
+                                            // 重新绑定折叠事件
+                                            const newBlock = wrapper.querySelector('.thinking-block');
+                                            if (newBlock) {
+                                                const toggle = newBlock.querySelector('.thinking-toggle');
+                                                if (toggle) {
+                                                    toggle.addEventListener('click', (e) => {
+                                                        e.stopPropagation();
+                                                        const contentDiv = newBlock.querySelector('.thinking-content');
+                                                        if (contentDiv) {
+                                                            contentDiv.classList.toggle('collapsed');
+                                                            const icon = toggle.querySelector('i');
+                                                            if (icon) {
+                                                                icon.className = contentDiv.classList.contains('collapsed') ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+                                                            }
+                                                            const curr = sessions.find(s => s.id === currentSessionId);
+                                                            if (curr && curr.messages[placeholderIdx]) {
+                                                                curr.messages[placeholderIdx].thinkingCollapsed = contentDiv.classList.contains('collapsed');
+                                                                saveAll();
+                                                            }
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                }
+            }
+            const finalSession = sessions.find(s => s.id === currentSessionId);
+            if (finalSession && finalSession.messages[placeholderIdx] && !finalSession.messages[placeholderIdx].content) {
+                finalSession.messages[placeholderIdx].content = fullContent || "(无回复)";
+            }
+            saveAll();
+            return true;
+        } catch (err) {
+            alert(`发送失败: ${err.message}`);
+            const sess = sessions.find(s => s.id === currentSessionId);
+            if (sess && sess.messages.length && sess.messages[sess.messages.length-1]?.role === 'assistant' && !sess.messages[sess.messages.length-1].content) {
+                sess.messages.pop();
+                renderMessages();
+            }
+            return false;
+        } finally {
+            isLoading = false;
+            sendBtn.disabled = false;
+            abortController = null;
+        }
+    }
+
+    async function onSend() {
+        if (isLoading) { alert("正在处理中..."); return; }
+        if (!currentConnectionId) { alert("请先在API连接管理中创建并选中一个连接"); return; }
+        const raw = messageInput.value.trim();
+        if (!raw) return;
+        messageInput.value = '';
+        await sendMessageStream(raw);
+        messageInput.focus();
+    }
+
+    // API连接管理UI
+    function renderConnectionList() {
+        connectionListDiv.innerHTML = '';
+        apiConnections.forEach(conn => {
+            const div = document.createElement('div');
+            div.className = `connection-item ${conn.id === currentConnectionId ? 'active' : ''}`;
+            div.innerHTML = `
+                <div>
+                    <div class="connection-name">${escapeHtml(conn.name)}</div>
+                    <div class="connection-detail">${conn.platform} · ${conn.model || '未选模型'}</div>
+                </div>
+                <button class="icon-btn delete-conn" data-id="${conn.id}" style="color:#e5484d;"><i class="fas fa-trash"></i></button>
+            `;
+            div.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-conn')) return;
+                currentConnectionId = conn.id;
+                renderConnectionList();
+                updateModelBadge();
+                saveAll();
+            });
+            const delBtn = div.querySelector('.delete-conn');
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (apiConnections.length === 1 && currentConnectionId === conn.id) currentConnectionId = null;
+                apiConnections = apiConnections.filter(c => c.id !== conn.id);
+                if (currentConnectionId === conn.id) currentConnectionId = apiConnections[0]?.id || null;
+                renderConnectionList();
+                updateModelBadge();
+                saveAll();
+            });
+            connectionListDiv.appendChild(div);
+        });
+    }
+
+    function openDrawer() { apiDrawer.classList.add('open'); drawerOverlay.classList.add('active'); }
+    function closeDrawer() { apiDrawer.classList.remove('open'); drawerOverlay.classList.remove('active'); newConnectionForm.style.display = 'none'; }
+    function toggleSidebar() { sidebar.classList.toggle('collapsed'); saveAll(); }
+
+    // 移动端菜单
+    function openMobileMenu() {
+        mobileSidebar.classList.add('open');
+        mobileOverlay.style.display = 'block';
+    }
+    function closeMobileMenu() {
+        mobileSidebar.classList.remove('open');
+        mobileOverlay.style.display = 'none';
+    }
+
+    // 新建连接表单事件
+    newConnectionBtn.addEventListener('click', () => {
+        newConnectionForm.style.display = 'block';
+        connNameInput.value = '';
+        selectedPlatform = 'openai';
+        platformOptions.forEach(opt => {
+            opt.classList.remove('selected');
+            if (opt.getAttribute('data-platform') === 'openai') opt.classList.add('selected');
+        });
+        customFieldsDiv.style.display = 'none';
+        platformFieldsDiv.style.display = 'block';
+        document.getElementById('customUrl').value = '';
+        document.getElementById('customKey').value = '';
+        document.getElementById('platformKey').value = '';
+        modelSelect.innerHTML = '<option value="">请先加载模型列表</option>';
+        manualModelContainer.innerHTML = '';
+    });
+
+    platformOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+            platformOptions.forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            selectedPlatform = opt.getAttribute('data-platform');
+            if (selectedPlatform === 'custom') {
+                customFieldsDiv.style.display = 'block';
+                platformFieldsDiv.style.display = 'none';
+            } else {
+                customFieldsDiv.style.display = 'none';
+                platformFieldsDiv.style.display = 'block';
+            }
+            modelSelect.innerHTML = '<option value="">请先加载模型列表</option>';
+            manualModelContainer.innerHTML = '';
+        });
+    });
+
+    loadModelsBtn.addEventListener('click', async () => {
+        let apiKey = '', url = '';
+        if (selectedPlatform === 'custom') {
+            apiKey = document.getElementById('customKey').value.trim();
+            url = document.getElementById('customUrl').value.trim();
+            if (!apiKey) { alert("请填写API Key"); return; }
+            if (!url) { alert("请填写API URL"); return; }
+        } else {
+            apiKey = document.getElementById('platformKey').value.trim();
+            if (!apiKey) { alert("请填写API Key"); return; }
+            url = getPlatformUrl(selectedPlatform);
+        }
+        const models = await loadModelList(selectedPlatform, url, apiKey);
+        if (models.length) {
+            modelSelect.innerHTML = '<option value="">选择模型</option>';
+            models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                modelSelect.appendChild(opt);
+            });
+            manualModelContainer.innerHTML = '';
+        } else {
+            modelSelect.innerHTML = '<option value="">无法加载列表，请手动输入</option>';
+            manualModelContainer.innerHTML = '<input type="text" id="manualModel" class="form-group" style="width:100%;" placeholder="手动输入模型名称">';
+        }
+    });
+
+    saveConnectionBtn.addEventListener('click', () => {
+        const name = connNameInput.value.trim();
+        if (!name) { alert("请输入连接名称"); return; }
+        let apiKey = '', url = '', model = '';
+        if (selectedPlatform === 'custom') {
+            apiKey = document.getElementById('customKey').value.trim();
+            url = document.getElementById('customUrl').value.trim();
+            if (!apiKey || !url) { alert("请填写API URL和密钥"); return; }
+        } else {
+            apiKey = document.getElementById('platformKey').value.trim();
+            if (!apiKey) { alert("请填写API密钥"); return; }
+            url = getPlatformUrl(selectedPlatform);
+        }
+        const modelSelectVal = modelSelect.value;
+        if (modelSelectVal && modelSelectVal !== "") {
+            model = modelSelectVal;
+        } else {
+            const manualInput = document.getElementById('manualModel');
+            if (manualInput) model = manualInput.value.trim();
+            if (!model) { alert("请选择或输入模型名称"); return; }
+        }
+        const newConn = {
+            id: Date.now().toString(),
+            name: name,
+            platform: selectedPlatform,
+            url: url,
+            apiKey: apiKey,
+            model: model
+        };
+        apiConnections.push(newConn);
+        if (!currentConnectionId) currentConnectionId = newConn.id;
+        renderConnectionList();
+        updateModelBadge();
+        saveAll();
+        newConnectionForm.style.display = 'none';
+        alert("连接已保存");
+    });
+
+    // 事件绑定
+    sendBtn.addEventListener('click', onSend);
+    newChatBtn.addEventListener('click', newSession);
+    mobileNewChatBtn.addEventListener('click', newSession);
+    openApiDrawerBtn.addEventListener('click', openDrawer);
+    closeDrawerBtn.addEventListener('click', closeDrawer);
+    drawerOverlay.addEventListener('click', closeDrawer);
+    themeToggleBtn.addEventListener('click', toggleTheme);
+    toggleSidebarBtn.addEventListener('click', toggleSidebar);
+    mobileMenuBtn.addEventListener('click', openMobileMenu);
+    mobileOverlay.addEventListener('click', closeMobileMenu);
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!isLoading) onSend();
+        }
+    });
+
+    loadAll();
+</script>
+</body>
+</html>
+```     
