@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>DeepSeek 风格 · 自定义AI工作台</title>
+    <!-- 引入图标库 (Font Awesome 6 免费) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- 字体 Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #0a0c12;
+            color: #e8edf5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 主布局 Flex 左右结构 */
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* ========= 左侧会话面板 ========= */
+        .sidebar {
+            width: 280px;
+            background: rgba(18, 24, 34, 0.85);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .new-chat-btn {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: none;
+            border-radius: 40px;
+            padding: 10px 16px;
+            width: 100%;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(59,130,246,0.3);
+        }
+        .new-chat-btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.05);
+        }
+
+        .sessions-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 8px;
+        }
+
+        .session-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 14px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: rgba(255,255,255,0.02);
+        }
+        .session-item:hover {
+            background: rgba(59,130,246,0.15);
+        }
+        .session-item.active {
+            background: rgba(59,130,246,0.25);
+            border-left: 3px solid #3b82f6;
+        }
+        .session-title {
+            flex: 1;
+            font-size: 0.85rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .session-delete {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: #f87171;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 4px;
+            border-radius: 8px;
+            transition: 0.1s;
+        }
+        .session-item:hover .session-delete {
+            opacity: 1;
+        }
+        .session-delete:hover {
+            background: rgba(248,113,113,0.2);
+        }
+
+        /* ========= 右侧主聊天区域 ========= */
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0f1117;
+            position: relative;
+        }
+
+        /* 顶部栏 (含设置按钮) */
+        .chat-header {
+            padding: 14px 24px;
+            background: rgba(15, 17, 23, 0.8);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+        .model-indicator {
+            background: rgba(59,130,246,0.2);
+            border-radius: 40px;
+            padding: 5px 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .settings-icon {
+            background: rgba(255,255,255,0.05);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 40px;
+            font-size: 1.2rem;
+            color: #cbd5e6;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .settings-icon:hover {
+            background: rgba(59,130,246,0.3);
+            color: white;
+        }
+
+        /* 消息区域 */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            scroll-behavior: smooth;
+        }
+
+        /* 消息气泡样式 */
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.2s ease;
+        }
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+        .message.assistant {
+            align-self: flex-start;
+        }
+        .message-avatar {
+            width: 34px;
+            height: 34px;
+            background: #1e293b;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .message.user .message-avatar {
+            background: #3b82f6;
+        }
+        .message.assistant .message-avatar {
+            background: #10b981;
+        }
+        .message-content-wrapper {
+            position: relative;
+            max-width: 100%;
+        }
+        .message-content {
+            background: #1e1f2c;
+            padding: 10px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        .message.user .message-content {
+            background: #2d3a5e;
+            border-bottom-right-radius: 6px;
+        }
+        .message.assistant .message-content {
+            background: #1e293b;
+            border-bottom-left-radius: 6px;
+        }
+        .message-actions {
+            position: absolute;
+            bottom: -26px;
+            right: 8px;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        .message.user .message-actions {
+            right: auto;
+            left: 8px;
+        }
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+        .action-btn {
+            background: #2d3748;
+            border: none;
+            color: #cbd5e6;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: 0.1s;
+        }
+        .action-btn:hover {
+            background: #3b82f6;
+            color: white;
+        }
+        .recall-btn {
+            background: #3b2a2a;
+        }
+        .recall-btn:hover {
+            background: #ef4444;
+        }
+
+        /* 输入区域 */
+        .input-area {
+            padding: 20px 24px 24px;
+            background: #0f1117;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            background: #1a1e2a;
+            border-radius: 28px;
+            padding: 6px 6px 6px 18px;
+            border: 1px solid #2a2f3f;
+        }
+        .input-wrapper textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #e8edf5;
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 12px 0;
+            resize: none;
+            outline: none;
+            max-height: 120px;
+        }
+        .send-button {
+            background: #3b82f6;
+            border: none;
+            border-radius: 40px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .send-button:hover:not(:disabled) {
+            background: #2563eb;
+            transform: scale(0.96);
+        }
+
+        /* 设置抽屉 (右侧滑出) */
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 380px;
+            height: 100%;
+            background: rgba(18, 24, 34, 0.98);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            transition: right 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            z-index: 200;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: -5px 0 30px rgba(0,0,0,0.5);
+        }
+        .drawer.open {
+            right: 0;
+        }
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 12px;
+        }
+        .drawer-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #94a3b8;
+            cursor: pointer;
+        }
+        .config-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .config-group label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+        .config-group input, .config-group select {
+            background: #0f1119;
+            border: 1px solid #2a2f3f;
+            border-radius: 16px;
+            padding: 10px 14px;
+            color: white;
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .config-group input:focus, .config-group select:focus {
+            border-color: #3b82f6;
+        }
+        .model-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .model-row select {
+            flex: 2;
+        }
+        .load-model-btn {
+            background: #2d3748;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 14px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .status-tip {
+            font-size: 0.7rem;
+            color: #86efac;
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(2px);
+            z-index: 150;
+            display: none;
+        }
+        .overlay.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e1f2c;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 700px) {
+            .sidebar { width: 70px; }
+            .sidebar .session-title { display: none; }
+            .new-chat-btn span:first-child { display: none; }
+            .drawer { width: 90%; right: -90%; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <!-- 左侧会话面板 -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <button class="new-chat-btn" id="newChatBtn"><i class="fas fa-plus"></i><span>新建对话</span></button>
+        </div>
+        <div class="sessions-list" id="sessionsList"></div>
+    </div>
+
+    <!-- 主聊天区域 -->
+    <div class="main-chat">
+        <div class="chat-header">
+            <div class="model-indicator" id="modelIndicator">🤖 模型: gpt-3.5-turbo</div>
+            <button class="settings-icon" id="openSettingsBtn"><i class="fas fa-sliders-h"></i></button>
+        </div>
+        <div class="messages-container" id="messagesContainer"></div>
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="messageInput" rows="1" placeholder="发送消息... (Enter 发送，Shift+Enter 换行)"></textarea>
+                <button class="send-button" id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 遮罩 -->
+<div class="overlay" id="drawerOverlay"></div>
+
+<!-- 配置抽屉 -->
+<div class="drawer" id="configDrawer">
+    <div class="drawer-header">
+        <span><i class="fas fa-cog"></i> API 配置</span>
+        <button class="drawer-close" id="closeDrawerBtn"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="config-group">
+        <label>🔌 API 地址</label>
+        <input type="text" id="apiBaseUrl" placeholder="https://api.openai.com/v1" value="https://api.openai.com/v1">
+    </div>
+    <div class="config-group">
+        <label>🔑 API 密钥</label>
+        <input type="password" id="apiKey" placeholder="sk-...">
+    </div>
+    <div class="config-group">
+        <label>🤖 模型选择</label>
+        <div class="model-row">
+            <select id="modelSelect"></select>
+            <button class="load-model-btn" id="loadModelsBtn"><i class="fas fa-sync-alt"></i> 加载列表</button>
+        </div>
+        <input type="text" id="customModel" placeholder="或手动输入模型名" value="gpt-3.5-turbo">
+    </div>
+    <div class="config-group">
+        <label>🧠 系统指令 (角色设定)</label>
+        <input type="text" id="systemPrompt" placeholder="例如: 你是一位专业AI助手" value="你是一位乐于助人的AI助手。">
+    </div>
+    <div class="status-tip" id="configStatus">💡 配置自动保存，模型列表需有效密钥</div>
+</div>
+
+<script>
+    // ---------- 全局变量 ----------
+    let sessions = [];          // { id, title, messages: [{role, content, id?}] }
+    let currentSessionId = null;
+    let isLoading = false;
+    let abortController = null;
+
+    // DOM 元素
+    const sessionsListDiv = document.getElementById('sessionsList');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const newChatBtn = document.getElementById('newChatBtn');
+    const openSettingsBtn = document.getElementById('openSettingsBtn');
+    const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    const configDrawer = document.getElementById('configDrawer');
+    const apiBaseUrlInput = document.getElementById('apiBaseUrl');
+    const apiKeyInput = document.getElementById('apiKey');
+    const modelSelect = document.getElementById('modelSelect');
+    const customModelInput = document.getElementById('customModel');
+    const loadModelsBtn = document.getElementById('loadModelsBtn');
+    const systemPromptInput = document.getElementById('systemPrompt');
+    const modelIndicator = document.getElementById('modelIndicator');
+    const configStatusSpan = document.getElementById('configStatus');
+
+    // ---------- 存储操作 ----------
+    function saveAllData() {
+        localStorage.setItem('deepseek_clone_sessions', JSON.stringify(sessions));
+        localStorage.setItem('deepseek_clone_currentSessionId', currentSessionId);
+        // 保存配置
+        localStorage.setItem('openai_custom_baseurl', apiBaseUrlInput.value);
+        localStorage.setItem('openai_custom_apikey', apiKeyInput.value);
+        localStorage.setItem('openai_custom_customModel', customModelInput.value);
+        localStorage.setItem('openai_custom_systemPrompt', systemPromptInput.value);
+    }
+
+    function loadAllData() {
+        const savedSessions = localStorage.getItem('deepseek_clone_sessions');
+        if (savedSessions) {
+            sessions = JSON.parse(savedSessions);
+        } else {
+            // 默认创建一个会话
+            const defaultId = Date.now().toString();
+            sessions = [{
+                id: defaultId,
+                title: '新对话',
+                messages: []
+            }];
+            currentSessionId = defaultId;
+        }
+        const savedCurr = localStorage.getItem('deepseek_clone_currentSessionId');
+        if (savedCurr && sessions.find(s => s.id === savedCurr)) currentSessionId = savedCurr;
+        else if (sessions.length) currentSessionId = sessions[0].id;
+        
+        // 加载配置
+        const savedUrl = localStorage.getItem('openai_custom_baseurl');
+        const savedKey = localStorage.getItem('openai_custom_apikey');
+        const savedModel = localStorage.getItem('openai_custom_customModel');
+        const savedSys = localStorage.getItem('openai_custom_systemPrompt');
+        if (savedUrl) apiBaseUrlInput.value = savedUrl;
+        if (savedKey) apiKeyInput.value = savedKey;
+        if (savedModel) customModelInput.value = savedModel;
+        if (savedSys) systemPromptInput.value = savedSys;
+        if (!customModelInput.value.trim()) customModelInput.value = "gpt-3.5-turbo";
+        updateModelIndicator();
+    }
+
+    // 辅助: 更新头部模型显示
+    function updateModelIndicator() {
+        let model = customModelInput.value.trim();
+        if (!model && modelSelect.value) model = modelSelect.value;
+        if (!model) model = "未设置";
+        modelIndicator.innerHTML = `🤖 模型: ${model}`;
+    }
+
+    // 渲染会话列表
+    function renderSessions() {
+        sessionsListDiv.innerHTML = '';
+        sessions.forEach(session => {
+            const div = document.createElement('div');
+            div.className = `session-item ${session.id === currentSessionId ? 'active' : ''}`;
+            div.innerHTML = `
+                <span class="session-title">${escapeHtml(session.title || '未命名对话')}</span>
+                <button class="session-delete" data-id="${session.id}"><i class="fas fa-trash-alt"></i></button>
+            `;
+            div.addEventListener('click', (e) => {
+                if (e.target.closest('.session-delete')) return;
+                switchSession(session.id);
+            });
+            const delBtn = div.querySelector('.session-delete');
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteSession(session.id);
+            });
+            sessionsListDiv.appendChild(div);
+        });
+    }
+
+    function switchSession(id) {
+        if (currentSessionId === id) return;
+        currentSessionId = id;
+        renderSessions();
+        renderMessages();
+        saveAllData();
+    }
+
+    function deleteSession(id) {
+        if (sessions.length === 1) {
+            // 至少保留一个会话
+            alert("至少保留一个对话");
+            return;
+        }
+        const index = sessions.findIndex(s => s.id === id);
+        if (index !== -1) {
+            sessions.splice(index, 1);
+            if (currentSessionId === id) {
+                currentSessionId = sessions[0].id;
+            }
+            renderSessions();
+            renderMessages();
+            saveAllData();
+        }
+    }
+
+    function newSession() {
+        const newId = Date.now().toString();
+        const newSession = {
+            id: newId,
+            title: '新对话',
+            messages: []
+        };
+        sessions.unshift(newSession);
+        currentSessionId = newId;
+        renderSessions();
+        renderMessages();
+        saveAllData();
+    }
+
+    // 渲染当前会话消息
+    function renderMessages() {
+        const session = sessions.find(s => s.id === currentSessionId);
+        if (!session) return;
+        messagesContainer.innerHTML = '';
+        if (session.messages.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'message assistant';
+            emptyDiv.innerHTML = `
+                <div class="message-avatar"><i class="fas fa-robot"></i></div>
+                <div class="message-content-wrapper">
+                    <div class="message-content">👋 你好！我是你的AI助手，配置好API后即可开始对话。</div>
+                </div>
+            `;
+            messagesContainer.appendChild(emptyDiv);
+        } else {
+            session.messages.forEach((msg, idx) => {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${msg.role}`;
+                const avatar = msg.role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+                msgDiv.innerHTML = `
+                    <div class="message-avatar">${avatar}</div>
+                    <div class="message-content-wrapper">
+                        <div class="message-content">${escapeHtml(msg.content)}</div>
+                        <div class="message-actions">
+                            <button class="action-btn copy-btn" data-msg="${escapeHtml(msg.content).replace(/"/g, '&quot;')}"><i class="fas fa-copy"></i> 复制</button>
+                            ${msg.role === 'user' ? `<button class="action-btn recall-btn" data-msg-idx="${idx}"><i class="fas fa-undo-alt"></i> 撤回</button>` : ''}
+                        </div>
+                    </div>
+                `;
+                messagesContainer.appendChild(msgDiv);
+            });
+        }
+        // 绑定复制和撤回事件
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const text = btn.getAttribute('data-msg');
+                navigator.clipboard.writeText(text);
+                setConfigStatus("✅ 已复制", false);
+            });
+        });
+        document.querySelectorAll('.recall-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.getAttribute('data-msg-idx'));
+                recallMessage(idx);
+            });
+        });
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // 撤回功能: 删除该条用户消息及之后所有消息，然后重新请求AI回复（保持上下文）
+    async function recallMessage(userMsgIndex) {
+        const session = sessions.find(s => s.id === currentSessionId);
+        if (!session) return;
+        if (isLoading) { alert("请等待当前请求完成"); return; }
+        // 确保该索引消息是user
+        if (session.messages[userMsgIndex]?.role !== 'user') return;
+        // 删除该索引及之后的所有消息
+        session.messages.splice(userMsgIndex);
+        renderMessages();
+        saveAllData();
+        // 如果删除后还有消息（例如之前有assistant回复也被删了），重新请求AI? 但这里保留上下文，不自动请求，用户可再次发送。
+        // 但按照撤回习惯，用户撤回后应该让AI重新回答刚刚撤回的那条消息（但已经删除了），更符合直觉：撤回后允许重新发送新消息。
+        // 这里简单撤回即可，不做自动重新生成，让用户手动再次发送。
+        setConfigStatus("已撤回该消息及之后回复", false);
+    }
+
+    // 添加消息到当前会话
+    function addMessageToCurrent(role, content) {
+        const session = sessions.find(s => s.id === currentSessionId);
+        if (!session) return;
+        session.messages.push({ role, content });
+        // 更新会话标题 (取第一条用户消息内容前20字)
+        if (role === 'user' && session.messages.length === 1) {
+            let newTitle = content.slice(0, 20);
+            if (newTitle.length < content.length) newTitle += '...';
+            session.title = newTitle;
+        }
+        renderMessages();
+        saveAllData();
+    }
+
+    // 调用 OpenAI API
+    async function sendMessageToAI(userMessage) {
+        const baseUrl = apiBaseUrlInput.value.trim();
+        const apiKey = apiKeyInput.value.trim();
+        let model = customModelInput.value.trim();
+        if (!model && modelSelect.value) model = modelSelect.value;
+        if (!model) { setConfigStatus("请填写或选择模型", true); return false; }
+        if (!baseUrl) { setConfigStatus("请填写 API 地址", true); return false; }
+        if (!apiKey) { setConfigStatus("请填写 API 密钥", true); return false; }
+        const endpoint = baseUrl.replace(/\/+$/, '') + '/chat/completions';
+
+        const session = sessions.find(s => s.id === currentSessionId);
+        const messagesPayload = [];
+        const sysPrompt = systemPromptInput.value.trim();
+        if (sysPrompt) messagesPayload.push({ role: 'system', content: sysPrompt });
+        for (let msg of session.messages) {
+            messagesPayload.push({ role: msg.role, content: msg.content });
+        }
+        messagesPayload.push({ role: 'user', content: userMessage });
+
+        isLoading = true;
+        sendBtn.disabled = true;
+        const controller = new AbortController();
+        abortController = controller;
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: messagesPayload,
+                    temperature: 0.7,
+                    max_tokens: 1500
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (!response.ok) {
+                let errText = await response.text();
+                throw new Error(`API错误 (${response.status}): ${errText.slice(0,100)}`);
+            }
+            const data = await response.json();
+            const reply = data.choices[0]?.message?.content;
+            if (!reply) throw new Error("模型返回为空");
+            addMessageToCurrent('user', userMessage);
+            addMessageToCurrent('assistant', reply);
+            return true;
+        } catch (err) {
+            let msg = err.message;
+            if (err.name === 'AbortError') msg = "请求超时，请检查网络/地址";
+            setConfigStatus(`发送失败: ${msg}`, true);
+            return false;
+        } finally {
+            isLoading = false;
+            sendBtn.disabled = false;
+            abortController = null;
+        }
+    }
+
+    async function onSend() {
+        if (isLoading) { setConfigStatus("正在处理中...", true); return; }
+        const raw = messageInput.value.trim();
+        if (!raw) return;
+        messageInput.value = '';
+        const success = await sendMessageToAI(raw);
+        if (!success) {
+            messageInput.value = raw;
+        }
+        messageInput.focus();
+    }
+
+    // 加载模型列表
+    async function loadModels() {
+        const baseUrl = apiBaseUrlInput.value.trim();
+        const apiKey = apiKeyInput.value.trim();
+        if (!baseUrl) { setConfigStatus("请先填写 API 地址", true); return; }
+        if (!apiKey) { setConfigStatus("请先填写 API 密钥", true); return; }
+        const modelsUrl = baseUrl.replace(/\/+$/, '') + '/models';
+        setConfigStatus("正在加载模型列表...");
+        loadModelsBtn.disabled = true;
+        try {
+            const res = await fetch(modelsUrl, {
+                headers: { 'Authorization': `Bearer ${apiKey}` },
+                signal: AbortSignal.timeout(10000)
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            let models = [];
+            if (data.data) models = data.data.map(m => m.id);
+            else if (data.models) models = data.models.map(m => m.id);
+            if (!models.length) throw new Error("无模型数据");
+            modelSelect.innerHTML = '<option value="">选择模型</option>';
+            models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                modelSelect.appendChild(opt);
+            });
+            setConfigStatus(`✅ 加载 ${models.length} 个模型，点击下拉选择`, false);
+            modelSelect.onchange = () => {
+                if (modelSelect.value) {
+                    customModelInput.value = modelSelect.value;
+                    updateModelIndicator();
+                    saveAllData();
+                }
+            };
+        } catch (err) {
+            setConfigStatus(`加载失败: ${err.message}`, true);
+        } finally {
+            loadModelsBtn.disabled = false;
+        }
+    }
+
+    function setConfigStatus(msg, isErr) {
+        configStatusSpan.innerHTML = isErr ? `⚠️ ${msg}` : `✨ ${msg}`;
+        if (!isErr) setTimeout(() => {
+            if (configStatusSpan.innerHTML.includes(msg)) configStatusSpan.innerHTML = "💡 配置自动保存";
+        }, 2500);
+    }
+
+    // 抽屉开关
+    function openDrawer() { configDrawer.classList.add('open'); drawerOverlay.classList.add('active'); }
+    function closeDrawer() { configDrawer.classList.remove('open'); drawerOverlay.classList.remove('active'); saveAllData(); updateModelIndicator(); }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // 监听配置输入保存
+    function bindConfigAutoSave() {
+        [apiBaseUrlInput, apiKeyInput, customModelInput, systemPromptInput].forEach(inp => {
+            inp.addEventListener('input', () => { saveAllData(); updateModelIndicator(); });
+        });
+    }
+
+    // 初始化
+    function init() {
+        loadAllData();
+        bindConfigAutoSave();
+        renderSessions();
+        renderMessages();
+        sendBtn.addEventListener('click', onSend);
+        newChatBtn.addEventListener('click', newSession);
+        openSettingsBtn.addEventListener('click', openDrawer);
+        closeDrawerBtn.addEventListener('click', closeDrawer);
+        drawerOverlay.addEventListener('click', closeDrawer);
+        loadModelsBtn.addEventListener('click', loadModels);
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!isLoading) onSend();
+            }
+        });
+        updateModelIndicator();
+    }
+    init();
+</script>
+</body>
+</html>
+```
