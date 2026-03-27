@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>DeepSeek 对话平台 · 深度思考 + 多模型</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* 主题变量 */
+        :root {
+            --bg-main: #ffffff;
+            --border-light: #e5e5e5;
+            --text-primary: #1a1a1a;
+            --text-secondary: #5a5a5a;
+            --message-user-bg: #e9ecef;
+            --message-assistant-bg: #f8f9fa;
+            --hover-bg: #f1f3f5;
+            --active-bg: #e9ecef;
+            --input-bg: #ffffff;
+            --drawer-bg: #ffffff;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        body.dark {
+            --bg-main: #18181c;
+            --border-light: #2c2c36;
+            --text-primary: #eaeef2;
+            --text-secondary: #9ca3af;
+            --message-user-bg: #2a2a36;
+            --message-assistant-bg: #22222c;
+            --hover-bg: #2c2c38;
+            --active-bg: #3a3a48;
+            --input-bg: #2c2c36;
+            --drawer-bg: #1e1e2a;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            transition: background 0.2s, color 0.2s;
+        }
+        /* 主布局 */
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            position: relative;
+        }
+        /* 右侧主聊天区（全宽） */
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-main);
+            position: relative;
+            width: 100%;
+        }
+        .chat-header {
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .history-btn {
+            background: var(--hover-bg);
+            border: none;
+            border-radius: 40px;
+            width: 36px;
+            height: 36px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: 0.2s;
+        }
+        .history-btn:hover {
+            background: var(--active-bg);
+            color: var(--text-primary);
+        }
+        .model-badge {
+            background: var(--hover-bg);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .header-right {
+            display: flex;
+            gap: 8px;
+        }
+        .icon-btn {
+            background: transparent;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 40px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: 0.2s;
+        }
+        .icon-btn:hover {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+        }
+        /* 消息区域 */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            scroll-behavior: smooth;
+        }
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.2s ease;
+        }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .message.assistant { align-self: flex-start; width: 100%; max-width: 90%; }
+        .message-avatar {
+            width: 34px;
+            height: 34px;
+            background: var(--hover-bg);
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .message.user .message-avatar { background: var(--accent); color: white; }
+        .message.assistant .message-avatar { background: #10b981; color: white; }
+        .message-content-wrapper {
+            position: relative;
+            max-width: 100%;
+            flex: 1;
+        }
+        .message-content {
+            background: var(--message-assistant-bg);
+            padding: 10px 16px;
+            border-radius: 18px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        .message.user .message-content { background: var(--message-user-bg); border-bottom-right-radius: 6px; }
+        .message.assistant .message-content { border-bottom-left-radius: 6px; }
+        .thinking-block {
+            background: var(--hover-bg);
+            border-left: 3px solid #f59e0b;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .message-actions {
+            position: absolute;
+            bottom: -26px;
+            right: 8px;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        .message.user .message-actions { right: auto; left: 8px; }
+        .message:hover .message-actions { opacity: 1; }
+        .action-btn {
+            background: var(--hover-bg);
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .action-btn:hover { background: var(--accent); color: white; }
+        .recall-btn:hover { background: #ef4444; }
+        /* 输入区域 */
+        .input-area {
+            padding: 16px 24px 24px;
+            border-top: 1px solid var(--border-light);
+            background: var(--bg-main);
+        }
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            background: var(--input-bg);
+            border-radius: 28px;
+            padding: 6px 6px 6px 18px;
+            border: 1px solid var(--border-light);
+        }
+        .input-wrapper textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 12px 0;
+            resize: none;
+            outline: none;
+            max-height: 120px;
+        }
+        .send-button {
+            background: var(--accent);
+            border: none;
+            border-radius: 40px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .send-button:disabled { opacity: 0.5; cursor: not-allowed; }
+        /* 左侧历史抽屉 */
+        .history-drawer {
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 320px;
+            height: 100%;
+            background: var(--drawer-bg);
+            border-right: 1px solid var(--border-light);
+            transition: left 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: 5px 0 20px rgba(0,0,0,0.1);
+        }
+        .history-drawer.open {
+            left: 0;
+        }
+        .history-drawer-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+        .history-drawer-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 8px;
+        }
+        .session-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 12px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: 0.1s;
+            color: var(--text-primary);
+        }
+        .session-item:hover { background: var(--hover-bg); }
+        .session-item.active { background: var(--active-bg); }
+        .session-title {
+            flex: 1;
+            font-size: 0.85rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .session-delete {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: #e5484d;
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 4px;
+            border-radius: 6px;
+        }
+        .session-item:hover .session-delete { opacity: 1; }
+        /* 右侧 API 抽屉 */
+        .api-drawer {
+            position: fixed;
+            top: 0;
+            right: -480px;
+            width: 480px;
+            height: 100%;
+            background: var(--drawer-bg);
+            border-left: 1px solid var(--border-light);
+            transition: right 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.1);
+        }
+        .api-drawer.open { right: 0; }
+        .drawer-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+        .drawer-content {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .connection-list {
+            margin-bottom: 24px;
+        }
+        .connection-item {
+            background: var(--hover-bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: 0.1s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .connection-item:hover { background: var(--active-bg); }
+        .connection-item.active { border-left: 3px solid var(--accent); background: var(--active-bg); }
+        .connection-name { font-weight: 500; font-size: 0.85rem; }
+        .connection-detail { font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; }
+        .new-connection-btn {
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 10px;
+            margin: 12px 0;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .platform-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .platform-option {
+            background: var(--hover-bg);
+            border-radius: 40px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .platform-option.selected {
+            background: var(--accent);
+            color: white;
+        }
+        .model-load-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .model-load-row select {
+            flex: 1;
+        }
+        .load-models-btn {
+            background: var(--hover-bg);
+            border: none;
+            border-radius: 40px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(2px);
+            z-index: 150;
+            display: none;
+        }
+        .overlay.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--hover-bg); }
+        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
+        @media (max-width: 700px) {
+            .api-drawer { width: 90%; right: -90%; }
+            .history-drawer { width: 80%; left: -80%; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="main-chat">
+        <div class="chat-header">
+            <div class="header-left">
+                <button class="history-btn" id="openHistoryDrawerBtn"><i class="fas fa-history"></i></button>
+                <div class="model-badge" id="currentModelBadge"><i class="fas fa-microchip"></i> 未选择模型</div>
+            </div>
+            <div class="header-right">
+                <button class="icon-btn" id="themeToggleBtn"><i class="fas fa-moon"></i></button>
+                <button class="icon-btn" id="openApiDrawerBtn"><i class="fas fa-plug"></i></button>
+            </div>
+        </div>
+        <div class="messages-container" id="messagesContainer"></div>
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="messageInput" rows="1" placeholder="发送消息... (Enter 发送，Shift+Enter 换行)"></textarea>
+                <button class="send-button" id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 左侧历史抽屉 -->
+<div class="history-drawer" id="historyDrawer">
+    <div class="history-drawer-header">
+        <span><i class="fas fa-comments"></i> 历史对话</span>
+        <button class="icon-btn" id="closeHistoryDrawerBtn"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="history-drawer-content" id="sessionsList"></div>
+    <div style="padding: 16px;">
+        <button class="new-connection-btn" id="newChatBtn" style="background: var(--accent);"><i class="fas fa-plus"></i> 新建对话</button>
+    </div>
+</div>
+
+<!-- 右侧 API 抽屉 -->
+<div class="api-drawer" id="apiDrawer">
+    <div class="drawer-header">
+        <span><i class="fas fa-link"></i> API 连接管理</span>
+        <button class="icon-btn" id="closeApiDrawerBtn"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="drawer-content">
+        <div class="connection-list" id="connectionList"></div>
+        <button class="new-connection-btn" id="newConnectionBtn"><i class="fas fa-plus"></i> 新建连接</button>
+        <div id="newConnectionForm" style="display: none;">
+            <div class="form-group">
+                <label>连接名称</label>
+                <input type="text" id="connName" placeholder="例如: DeepSeek官方">
+            </div>
+            <label>选择模型平台</label>
+            <div class="platform-select" id="platformSelect">
+                <div class="platform-option" data-platform="openai">OpenAI</div>
+                <div class="platform-option" data-platform="deepseek">DeepSeek</div>
+                <div class="platform-option" data-platform="gemini">Gemini</div>
+                <div class="platform-option" data-platform="grok">Grok</div>
+                <div class="platform-option" data-platform="claude">Claude</div>
+                <div class="platform-option" data-platform="doubao">豆包</div>
+                <div class="platform-option" data-platform="openrouter">OpenRouter</div>
+                <div class="platform-option" data-platform="custom">自定义 (OpenAI协议)</div>
+            </div>
+            <div id="customFields" style="display: none;">
+                <div class="form-group">
+                    <label>API URL</label>
+                    <input type="text" id="customUrl" placeholder="https://api.openai.com/v1">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="customKey" placeholder="sk-...">
+                </div>
+            </div>
+            <div id="platformFields" style="display: none;">
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="platformKey" placeholder="请输入API密钥">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>模型选择</label>
+                <div class="model-load-row">
+                    <select id="modelSelect"></select>
+                    <button class="load-models-btn" id="loadModelsBtn"><i class="fas fa-sync-alt"></i> 加载列表</button>
+                </div>
+                <div id="manualModelContainer" style="margin-top: 8px;"></div>
+            </div>
+            <button class="new-connection-btn" id="saveConnectionBtn" style="margin-top: 8px;">保存连接</button>
+        </div>
+    </div>
+</div>
+
+<div class="overlay" id="drawerOverlay"></div>
+
+<script>
+    // ---------- 全局数据 ----------
+    let apiConnections = [];
+    let currentConnectionId = null;
+    let sessions = [];
+    let currentSessionId = null;
+    let isLoading = false;
+    let abortController = null;
+    let currentStreamingMsgElement = null;  // 用于流式更新，避免整体重绘
+
+    // DOM 元素
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const newChatBtn = document.getElementById('newChatBtn');
+    const openApiDrawerBtn = document.getElementById('openApiDrawerBtn');
+    const closeApiDrawerBtn = document.getElementById('closeApiDrawerBtn');
+    const openHistoryDrawerBtn = document.getElementById('openHistoryDrawerBtn');
+    const closeHistoryDrawerBtn = document.getElementById('closeHistoryDrawerBtn');
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    const apiDrawer = document.getElementById('apiDrawer');
+    const historyDrawer = document.getElementById('historyDrawer');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const currentModelBadge = document.getElementById('currentModelBadge');
+    const connectionListDiv = document.getElementById('connectionList');
+    const sessionsListDiv = document.getElementById('sessionsList');
+    const newConnectionBtn = document.getElementById('newConnectionBtn');
+    const newConnectionForm = document.getElementById('newConnectionForm');
+    const saveConnectionBtn = document.getElementById('saveConnectionBtn');
+    const connNameInput = document.getElementById('connName');
+    const customFieldsDiv = document.getElementById('customFields');
+    const platformFieldsDiv = document.getElementById('platformFields');
+    const platformOptions = document.querySelectorAll('.platform-option');
+    const modelSelect = document.getElementById('modelSelect');
+    const loadModelsBtn = document.getElementById('loadModelsBtn');
+    const manualModelContainer = document.getElementById('manualModelContainer');
+    let selectedPlatform = 'openai';
+
+    // 辅助函数
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function saveAll() {
+        localStorage.setItem('apiConnections', JSON.stringify(apiConnections));
+        localStorage.setItem('currentConnectionId', currentConnectionId);
+        localStorage.setItem('sessions', JSON.stringify(sessions));
+        localStorage.setItem('currentSessionId', currentSessionId);
+        localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+    }
+
+    function loadAll() {
+        const savedConns = localStorage.getItem('apiConnections');
+        if (savedConns) apiConnections = JSON.parse(savedConns);
+        else apiConnections = [];
+        const savedConnId = localStorage.getItem('currentConnectionId');
+        if (savedConnId && apiConnections.find(c => c.id === savedConnId)) currentConnectionId = savedConnId;
+        const savedSessions = localStorage.getItem('sessions');
+        if (savedSessions) {
+            sessions = JSON.parse(savedSessions);
+            if (!sessions.length) {
+                const defaultId = Date.now().toString();
+                sessions = [{ id: defaultId, title: '新对话', messages: [] }];
+            }
+        } else {
+            const defaultId = Date.now().toString();
+            sessions = [{ id: defaultId, title: '新对话', messages: [] }];
+        }
+        const savedSessId = localStorage.getItem('currentSessionId');
+        if (savedSessId && sessions.find(s => s.id === savedSessId)) currentSessionId = savedSessId;
+        else if (sessions.length) currentSessionId = sessions[0].id;
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') document.body.classList.add('dark');
+        else document.body.classList.remove('dark');
+        updateThemeIcon();
+        renderConnectionList();
+        updateModelBadge();
+        renderSessionList();
+        renderMessages();
+    }
+
+    function updateThemeIcon() {
+        const isDark = document.body.classList.contains('dark');
+        themeToggleBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    }
+
+    function toggleTheme() {
+        document.body.classList.toggle('dark');
+        updateThemeIcon();
+        saveAll();
+    }
+
+    function updateModelBadge() {
+        const conn = apiConnections.find(c => c.id === currentConnectionId);
+        if (conn) {
+            currentModelBadge.innerHTML = `<i class="fas fa-microchip"></i> ${conn.name} · ${conn.model || '未选模型'}`;
+        } else {
+            currentModelBadge.innerHTML = `<i class="fas fa-microchip"></i> 未选择API连接`;
+        }
+    }
+
+    // 会话列表渲染（左侧抽屉）
+    function renderSessionList() {
+        sessionsListDiv.innerHTML = '';
+        if (!sessions.length) return;
+        sessions.forEach(session => {
+            const div = document.createElement('div');
+            div.className = `session-item ${session.id === currentSessionId ? 'active' : ''}`;
+            div.innerHTML = `
+                <span class="session-title">${escapeHtml(session.title || '新对话')}</span>
+                <button class="session-delete" data-id="${session.id}"><i class="fas fa-trash-alt"></i></button>
+            `;
+            div.addEventListener('click', (e) => { if (!e.target.closest('.session-delete')) switchSession(session.id); });
+            div.querySelector('.session-delete').addEventListener('click', (e) => { e.stopPropagation(); deleteSession(session.id); });
+            sessionsListDiv.appendChild(div);
+        });
+    }
+
+    function switchSession(id) {
+        if (isLoading) { alert("请等待当前请求完成"); return; }
+        currentSessionId = id;
+        renderSessionList();
+        renderMessages();
+        saveAll();
+    }
+
+    function deleteSession(id) {
+        if (sessions.length === 1) { alert("至少保留一个对话"); return; }
+        const index = sessions.findIndex(s => s.id === id);
+        if (index !== -1) {
+            sessions.splice(index, 1);
+            if (currentSessionId === id) currentSessionId = sessions[0].id;
+            renderSessionList();
+            renderMessages();
+            saveAll();
+        }
+    }
+
+    function newSession() {
+        if (isLoading) { alert("请等待当前请求完成"); return; }
+        const newId = Date.now().toString();
+        sessions.unshift({ id: newId, title: '新对话', messages: [] });
+        currentSessionId = newId;
+        renderSessionList();
+        renderMessages();
+        saveAll();
+    }
+
+    // 消息渲染（优化版，支持增量更新）
+    function renderMessages() {
+        const session = sessions.find(s => s.id === currentSessionId);
+        if (!session) return;
+        // 完全重新渲染（非流式时）
+        messagesContainer.innerHTML = '';
+        if (session.messages.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'message assistant';
+            emptyDiv.innerHTML = `<div class="message-avatar"><i class="fas fa-robot"></i></div><div class="message-content-wrapper"><div class="message-content">👋 你好！请先在右侧“API连接管理”中配置一个API连接并选中，即可开始对话。</div></div>`;
+            messagesContainer.appendChild(emptyDiv);
+        } else {
+            session.messages.forEach((msg, idx) => {
+                appendMessageElement(msg, idx);
+            });
+        }
+        attachMessageActions();
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function appendMessageElement(msg, idx) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${msg.role}`;
+        msgDiv.setAttribute('data-msg-idx', idx);
+        const avatar = msg.role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+        let contentHtml = '';
+        if (msg.role === 'assistant' && msg.thinking) {
+            contentHtml = `<div class="thinking-block"><i class="fas fa-brain"></i> 深度思考：<br>${escapeHtml(msg.thinking)}</div>`;
+        }
+        contentHtml += `<div class="message-content">${escapeHtml(msg.content)}</div>`;
+        msgDiv.innerHTML = `
+            <div class="message-avatar">${avatar}</div>
+            <div class="message-content-wrapper">
+                ${contentHtml}
+                <div class="message-actions">
+                    <button class="action-btn copy-btn" data-msg="${escapeHtml(msg.content).replace(/"/g, '&quot;')}"><i class="fas fa-copy"></i> 复制</button>
+                    ${msg.role === 'user' ? `<button class="action-btn recall-btn" data-msg-idx="${idx}"><i class="fas fa-undo-alt"></i> 撤回</button>` : ''}
+                </div>
+            </div>
+        `;
+        messagesContainer.appendChild(msgDiv);
+        return msgDiv;
+    }
+
+    function updateStreamingMessage(msgIdx, content, thinking = null) {
+        const existingMsg = messagesContainer.querySelector(`.message[data-msg-idx="${msgIdx}"]`);
+        if (existingMsg) {
+            const contentDiv = existingMsg.querySelector('.message-content');
+            if (contentDiv) contentDiv.innerHTML = escapeHtml(content);
+            if (thinking) {
+                let thinkingBlock = existingMsg.querySelector('.thinking-block');
+                if (!thinkingBlock) {
+                    const wrapper = existingMsg.querySelector('.message-content-wrapper');
+                    thinkingBlock = document.createElement('div');
+                    thinkingBlock.className = 'thinking-block';
+                    thinkingBlock.innerHTML = `<i class="fas fa-brain"></i> 深度思考：<br>`;
+                    wrapper.insertBefore(thinkingBlock, contentDiv);
+                }
+                const thinkingText = thinkingBlock.querySelector('br')?.nextSibling;
+                if (thinkingText) thinkingText.textContent = thinking;
+                else thinkingBlock.appendChild(document.createTextNode(thinking));
+            }
+        }
+    }
+
+    function attachMessageActions() {
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const text = btn.getAttribute('data-msg');
+                navigator.clipboard.writeText(text);
+                alert("已复制");
+            });
+        });
+        document.querySelectorAll('.recall-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (isLoading) { alert("请等待当前请求完成"); return; }
+                const idx = parseInt(btn.getAttribute('data-msg-idx'));
+                const session = sessions.find(s => s.id === currentSessionId);
+                if (session && session.messages[idx]?.role === 'user') {
+                    session.messages.splice(idx);
+                    renderMessages();
+                    saveAll();
+                }
+            });
+        });
+    }
+
+    function addMessageToCurrent(role, content, thinking = null) {
+        const session = sessions.find(s => s.id === currentSessionId);
+        if (!session) return;
+        const msg = { role, content };
+        if (thinking) msg.thinking = thinking;
+        session.messages.push(msg);
+        if (role === 'user' && session.messages.length === 1) {
+            let newTitle = content.slice(0, 20);
+            if (newTitle.length < content.length) newTitle += '...';
+            session.title = newTitle;
+        }
+        renderMessages();
+        saveAll();
+    }
+
+    function ge
